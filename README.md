@@ -1,4 +1,7 @@
 # UnitySubPassSample
 
-ScriptableRenderContext.BeginSubPass‚ğg‚Á‚½ƒTƒ“ƒvƒ‹‚É‚È‚è‚Ü‚·B<br />
-ƒ^ƒCƒ‹ƒx[ƒXGPU‚Å‚Í UNITY_READ_FRAMEBUFFER_INPUT‚ÌƒAƒNƒZƒX‚É‚æ‚Á‚ÄAColor‚âDepth‚Ö‚ÌƒAƒNƒZƒX‚ª’áƒRƒXƒg‚É‚È‚è‚Ü‚·
+ScriptableRenderContext.BeginSubPassã‚’ä½¿ã£ãŸã‚µãƒ³ãƒ—ãƒ«ã«ãªã‚Šã¾ã™ã€‚<br />
+ã‚¿ã‚¤ãƒ«ãƒ™ãƒ¼ã‚¹GPUã§ã¯ UNITY_READ_FRAMEBUFFER_INPUTã®ã‚¢ã‚¯ã‚»ã‚¹ã«ã‚ˆã£ã¦ã€Colorã‚„Depthã¸ã®ã‚¢ã‚¯ã‚»ã‚¹ãŒä½ã‚³ã‚¹ãƒˆã«ãªã‚Šã¾ã™
+
+This is an sample project using "ScriptableRenderContext.BeginSubPass".
+The performance will be increased accessing via "UNITY_READ_FRAMEBUFFER_INPUT" on the tile based GPU.
