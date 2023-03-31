@@ -1,4 +1,4 @@
-Shader "Unlit/CustomBlit"
+ï»¿Shader "Unlit/CustomBlit"
 {
     Properties
     {
@@ -7,7 +7,6 @@ Shader "Unlit/CustomBlit"
     }
     SubShader
     {
-        Tags { "RenderType"="Opaque" }
         LOD 100
 
         Pass
@@ -28,9 +27,9 @@ Shader "Unlit/CustomBlit"
                 half4 _Color2;
             CBUFFER_END
 
-            // FrameBufferInput‚ÌéŒ¾‚ğ‚µ‚Ü‚·
-            UNITY_DECLARE_FRAMEBUFFER_INPUT_FLOAT(0); // Albedo
-            UNITY_DECLARE_FRAMEBUFFER_INPUT_FLOAT(1); // Depth
+            // FrameBufferInputã®å®£è¨€ã‚’ã—ã¾ã™
+            UNITY_DECLARE_FRAMEBUFFER_INPUT_HALF(0); // Albedo
+            UNITY_DECLARE_FRAMEBUFFER_INPUT_HALF(1); // Color2
 
             float4 vert(float4 vertexPosition : POSITION) : SV_POSITION
             {
@@ -40,12 +39,12 @@ Shader "Unlit/CustomBlit"
             half4 frag(float4 pos : SV_POSITION) : SV_Target
             {
 
-                // Tiledƒx[ƒXƒA[ƒLƒeƒNƒ`ƒƒ(Vulkan/metal)‚Å‚ÍATextureƒtƒFƒbƒ`‚Å‚Í‚È‚¢‚Ì‚Å‘‚­ƒAƒNƒZƒX‚ªo—ˆ‚Ü‚·
+                // Tiledãƒ™ãƒ¼ã‚¹ã‚¢ãƒ¼ã‚­ãƒ†ã‚¯ãƒãƒ£(Vulkan/metal)ã§ã¯ã€Textureãƒ•ã‚§ãƒƒãƒã§ã¯ãªã„ã®ã§æ—©ãã‚¢ã‚¯ã‚»ã‚¹ãŒå‡ºæ¥ã¾ã™
                 float4 albedo = UNITY_READ_FRAMEBUFFER_INPUT(0, pos);
-                float depth = UNITY_READ_FRAMEBUFFER_INPUT(1, pos).r;
+                float depth =  UNITY_READ_FRAMEBUFFER_INPUT(1, pos).r;
 
                 half4 blend = lerp(_Color2, _Color1, depth);
-                // depth‚Ì’l‚Å‰½‚Æ‚È‚­F–¡‚ğ¬‚º‚éƒGƒtƒFƒNƒg‚Å‚·
+                // depthã®å€¤ã§ä½•ã¨ãªãè‰²å‘³ã‚’æ··ãœã‚‹ã‚¨ãƒ•ã‚§ã‚¯ãƒˆã§ã™
                 albedo.rgb = (albedo.rgb * (1.0 - (blend.a * albedo.a) ) +
                     blend.rgb * blend.a * albedo.a);
                 return half4(albedo.rgb,1.0);

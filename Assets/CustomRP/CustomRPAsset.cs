@@ -1,4 +1,4 @@
-using System.Collections;
+ï»¿using System.Collections;
 using System.Collections.Generic;
 using Unity.Collections;
 using UnityEngine;
@@ -24,7 +24,10 @@ public class CustomRPAsset : RenderPipelineAsset
 
 public class CustomRPInstance : RenderPipeline
 {
-
+    private RenderTexture colorRt;
+    private RenderTexture color2Rt;
+    private RenderTexture finalRt;
+    private RenderTexture depthRt;
     static Mesh s_FullscreenMesh = null;
     public static Mesh fullscreenMesh
     {
@@ -59,20 +62,57 @@ public class CustomRPInstance : RenderPipeline
         }
     }
 
+    private void InitRenderTextures()
+    {
+        if (!colorRt)
+        {
+            colorRt = new RenderTexture(512, 512, 0);
+            //colorRt.memorylessMode = RenderTextureMemoryless.Color;
+            colorRt.name = "ColorRTTT";
+            colorRt.Create();
+        }
+        if (!color2Rt)
+        {
+            color2Rt = new RenderTexture(512, 512, 0);
+            //color2Rt.memorylessMode = RenderTextureMemoryless.Color;
+            color2Rt.name = "Color2RTTT";
+            color2Rt.Create();
+        }
+        if (!depthRt)
+        {
+            depthRt = new RenderTexture(512, 512, 24);
+            depthRt.format = RenderTextureFormat.Depth;
+            //depthRt.memorylessMode = RenderTextureMemoryless.Depth;
+            depthRt.Create();
+        }
+        if (!finalRt)
+        {
+            finalRt = new RenderTexture(512, 512, 0);
+            finalRt.Create();
+        }
+    }
+    // ã©ã†ã„ã†ãƒãƒƒãƒ•ã‚¡ãƒ¼ãŒã‚ã‚‹ã®ã‹å®šç¾©ã—ã¾ã™
+    AttachmentDescriptor color = new AttachmentDescriptor(RenderTextureFormat.ARGB32);
+    AttachmentDescriptor color2 = new AttachmentDescriptor(RenderTextureFormat.ARGB32);
+    AttachmentDescriptor depth = new AttachmentDescriptor(RenderTextureFormat.Depth);
+    AttachmentDescriptor final = new AttachmentDescriptor(RenderTextureFormat.ARGB32);
+
     protected override void Render(ScriptableRenderContext context, Camera[] cameras)
     {
-        // ‚Ç‚¤‚¢‚¤ƒoƒbƒtƒ@[‚ª‚ ‚é‚Ì‚©’è‹`‚µ‚Ü‚·
-        var final = new AttachmentDescriptor(RenderTextureFormat.ARGB32);
-        var color = new AttachmentDescriptor(RenderTextureFormat.ARGB32);
-        var depth = new AttachmentDescriptor(RenderTextureFormat.Depth);
-        final.ConfigureTarget(new RenderTargetIdentifier(BuiltinRenderTextureType.CameraTarget), false, true);
-        depth.ConfigureTarget(new RenderTargetIdentifier(BuiltinRenderTextureType.Depth), false, true);
+        InitRenderTextures();
 
-        NativeArray<AttachmentDescriptor> descriptors = 
+        color.ConfigureTarget(new RenderTargetIdentifier(colorRt), false, true);
+        color2.ConfigureTarget(new RenderTargetIdentifier(color2Rt), false, true);
+        depth.ConfigureTarget(new RenderTargetIdentifier(depthRt), false, true);
+        final.ConfigureTarget(new RenderTargetIdentifier(finalRt), false, true);
+
+        depth.ConfigureClear(new Color(), 1.0f, 0);
+
+        NativeArray<AttachmentDescriptor> descriptors =
             new NativeArray<AttachmentDescriptor>(new[] {
-                color,depth,
+                color,depth,color2,
                 final
-            }, 
+            },
             Allocator.Temp);
         foreach (var camera in cameras)
         {
@@ -81,25 +121,30 @@ public class CustomRPInstance : RenderPipeline
 
             int depthIndex = 1;
             int samples = 1;
-            using (context.BeginScopedRenderPass( camera.pixelWidth, camera.pixelHeight, 
-                samples, descriptors, depthIndex))
+            context.BeginRenderPass(finalRt.width, finalRt.height,
+                samples, descriptors, depthIndex);
             {
-                SubPassStep01(context, camera);
-                SubPassStep02(context, camera);
+                SubPassStep01(ref context, camera);
+                SubPassStep02(ref context);
             }
+            context.EndRenderPass();
+            cmd.Clear();
+            cmd.Blit(color2Rt, new RenderTargetIdentifier(BuiltinRenderTextureType.CameraTarget));
+            context.ExecuteCommandBuffer(cmd);
             context.Submit();
         }
         descriptors.Dispose();
     }
 
-    // Å‰‚ÌƒpƒX
-    private void SubPassStep01(ScriptableRenderContext context, Camera camera)
+    CommandBuffer cmd = new CommandBuffer();
+    // æœ€åˆã®ãƒ‘ã‚¹
+    private void SubPassStep01(ref ScriptableRenderContext context, Camera camera)
     {
-        // Clear‚µ‚ÄACamera‚ÌMatrixƒZƒbƒg‚às‚¢‚Ü‚·
-        CommandBuffer cmd = new CommandBuffer();
+        // Clearã—ã¦ã€Cameraã®Matrixã‚»ãƒƒãƒˆã‚‚è¡Œã„ã¾ã™
+        cmd.Clear();
         cmd.SetViewProjectionMatrices(camera.worldToCameraMatrix, camera.projectionMatrix);
         cmd.ClearRenderTarget(true, true, camera.backgroundColor);
-        // •`‰æİ’èü‚è
+        // æç”»è¨­å®šå‘¨ã‚Š
         ScriptableCullingParameters cullingParams;
         camera.TryGetCullingParameters(out cullingParams);
 
@@ -108,33 +153,39 @@ public class CustomRPInstance : RenderPipeline
         var settings = new DrawingSettings(new ShaderTagId("ForwardBase"), sortingSettings);
 
 
-        // Descriptor‚Åİ’è‚µ‚½‚¤‚¿‚Ì‚Ç‚Ìƒoƒbƒtƒ@[‚ğ—˜—p‚·‚é‚©H
-        var index = new NativeArray<int>(new[] { 0 }, Allocator.Temp);
-        using (context.BeginScopedSubPass(index))
+        // Descriptorã§è¨­å®šã—ãŸã†ã¡ã®ã©ã®ãƒãƒƒãƒ•ã‚¡ãƒ¼ã‚’åˆ©ç”¨ã™ã‚‹ã‹ï¼Ÿ
+        var index = new NativeArray<int>(new[] { 0,2 }, Allocator.Temp);
+        context.BeginSubPass(index);
         {
             context.ExecuteCommandBuffer(cmd);
             var fs = new FilteringSettings(RenderQueueRange.opaque);
             context.DrawRenderers(cullResults, ref settings, ref fs);
         }
+        context.EndSubPass();
         index.Dispose();
     }
 
-    // Step01‚Å•`‰æ‚µ‚½ Color‚ÆDepth‚ğg‚Á‚ÄÅI“I‚È‰æ–Ê‚É‚©‚«‚¾‚µ‚Ü‚·
-    private void SubPassStep02(ScriptableRenderContext context, Camera camera)
+    // Step01ã§æç”»ã—ãŸ Colorã¨Depthã‚’ä½¿ã£ã¦æœ€çµ‚çš„ãªç”»é¢ã«ã‹ãã ã—ã¾ã™
+    private void SubPassStep02(ref ScriptableRenderContext context)
     {
-        Material material= Resources.Load<Material>("CustomBlit");
-        CommandBuffer cmd = new CommandBuffer();
-        cmd.ClearRenderTarget(false, true, Color.black);
-        // Descripter‚Åİ’è‚³‚ê‚½ 0”Ô–Ú(color)‚Æ1”Ô–Ú(depth)‚ğó‚¯æ‚Á‚Äc
-        var inputIndex = new NativeArray<int>(new[] { 0,1 }, Allocator.Temp);
-        // Descripter‚Åİ’è‚³‚ê‚½ 2”Ô–Ú(final)‚É‘‚«‚Ü‚·
+        cmd.Clear();
+
+        Material material = Resources.Load<Material>("CustomBlit");
+        //cmd.ClearRenderTarget(false, true, Color.black);
+        // Descripterã§è¨­å®šã•ã‚ŒãŸ 0ç•ªç›®(color)ã¨1ç•ªç›®(depth)ã‚’å—ã‘å–ã£ã¦â€¦
+        var inputIndex = new NativeArray<int>(new[] { 0 ,1}, Allocator.Temp);
+        // Descripterã§è¨­å®šã•ã‚ŒãŸ 2ç•ªç›®(final)ã«æ›¸ãã¾ã™
         var index = new NativeArray<int>(new[] { 2 }, Allocator.Temp);
-        using (context.BeginScopedSubPass(index, inputIndex,true))
+        context.BeginSubPass(index, inputIndex, true);
         {
-            // CustomBlit.shader‚Å‘S‰æ–Ê‚ğ•`‰æ‚µ‚Ü‚·
+            cmd.ClearRenderTarget(true, true, Color.white);
+            // CustomBlit.shaderã§å…¨ç”»é¢ã‚’æç”»ã—ã¾ã™
             cmd.DrawMesh(fullscreenMesh, Matrix4x4.identity, material, 0, 0);
+            //cmd.DrawProcedural(Matrix4x4.identity, material, 0, MeshTopology.Quads, 4);
             context.ExecuteCommandBuffer(cmd);
         }
+        context.EndSubPass();
+
         inputIndex.Dispose();
         index.Dispose();
     }

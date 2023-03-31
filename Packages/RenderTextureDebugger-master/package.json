@@ -1,0 +1,11 @@
+{
+  "category": "debug",
+  "description": "List the RenderTexture.",
+  "keywords": [
+    "rendertexture"
+  ],
+  "name": "com.utj.debugger.rendertexture",
+  "displayName": "RenderTexture Debugger",
+  "unity": "2018.4",
+  "version": "1.1.0"
+}
